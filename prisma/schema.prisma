@@ -1,0 +1,348 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Blog {
+  id          Int      @id @default(autoincrement())
+  cuid        String   @unique @default(cuid())
+  slug        String   @unique
+  title       String
+  subtitle    String?
+  content     String
+  category    BlogCategory   @default(parenting)
+  categories  BlogCategory[] @default([])
+  date        DateTime @default(now())
+  views       Int      @default(0)
+  likes       Int      @default(0)
+  image       String?
+  featured    Boolean  @default(false)
+  authorName  String   @default("The African Parent")
+  authorImage String?
+  excerpt     String?
+  showCallout  Boolean @default(false)
+  audience    BlogAudience @default(parents)
+  published   Boolean  @default(false)
+
+  comments  Comment[]
+  nextSteps BlogNextStep[] @relation("BlogNextStep")
+}
+
+enum BlogAudience {
+  parents
+  institutions
+}
+
+enum BlogCategory {
+  parenting
+  sen
+  school_advocacy
+  identity
+  bullying
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  content   String
+  author    String
+  createdAt DateTime @default(now())
+
+  blogId Int
+  blog   Blog @relation(fields: [blogId], references: [id], onDelete: Cascade)
+}
+
+model StoreItem {
+  id         Int      @id @default(autoincrement())
+  name       String
+  imageUrl   String
+  category   StoreCategory
+  desc       String
+  free       Boolean @default(false)
+  parentNeeds ParentNeed[] @default([])
+  createdAt  DateTime @default(now())
+  price      Float
+  beaconLink String?
+  downloadLink String?
+  badge      String?
+  goodFor    String?
+  cta        String?   @default("Buy Now")
+  bundleId   Int?
+  bundle     Bundle?   @relation("BundleItems", fields: [bundleId], references: [id])
+  orderItems OrderItem[]
+}
+
+model Bundle {
+  id          Int         @id @default(autoincrement())
+  name        String
+  imageUrl    String
+  desc        String
+  price       Float
+  total       Float       @default(0)
+  createdAt   DateTime    @default(now())
+  cta         String?     @default("Buy Bundle")
+  category    BundleCategory
+  badge       String?
+  includes    String[]    @default([])
+  items       StoreItem[] @relation("BundleItems")
+  orderItems  OrderItem[]
+}
+
+enum BundleCategory {
+  school_advocacy
+  sen
+  ehcp
+  school_issues
+  bullying
+}
+
+model Orders {
+  id        String    @id @default(cuid())
+  items     OrderItem[]
+  total     Float
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  orderBy   String
+  orderTo   String?
+  complete  Boolean   @default(false)
+}
+
+model OrderItem {
+  id       Int       @id @default(autoincrement())
+  order    Orders    @relation(fields: [orderId], references: [id])
+  orderId  String
+  item     StoreItem? @relation(fields: [itemId], references: [id])
+  itemId   Int?
+  bundle   Bundle?    @relation(fields: [bundleId], references: [id])
+  bundleId Int?
+  quantity Int       @default(1)
+}
+
+model Donation {
+  id        String   @id @default(cuid())
+  amount    Float
+  donor     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  email     String
+  location  String?
+  completed Boolean  @default(false)
+}
+
+model Admins {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  role      Roles
+  lastLoginAt DateTime?
+
+  notificationsTriggered Notification[] @relation("triggeredBy")
+  notificationsReceived  Notification[] @relation("recipient")
+
+  memosSent     Memo[] @relation("MemoSent")
+  memosReceived Memo[] @relation("MemoReceived")
+  memosRead     Memo[] @relation("MemoReadBy") // Add this line
+  contactFormRead ContactForm[] @relation("ContactFormRead")
+}
+
+enum Roles {
+  Owner
+  Root
+  Developer
+  Other
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  type      NotifType
+  createdAt DateTime  @default(now())
+  cause     String?
+  amount    Float?
+  message   String
+  meta      Json?
+
+  triggeredBy   Admins? @relation("triggeredBy", fields: [adminId], references: [id])
+  adminId       String?
+
+  recipient     Admins? @relation("recipient", fields: [recipientId], references: [id])
+  recipientId   String?
+
+  @@index([type])
+  @@index([createdAt])
+  @@index([recipientId])
+}
+
+enum NotifType {
+  DonationInit
+  DonationComplete
+  DonationFail
+  PaymentInit
+  PaymentComplete
+  PaymentFail
+
+  AdminLogin
+  AdminCreate
+  AdminRoleChange
+  AdminPasswordChangeSelf
+  AdminPasswordChangeRoot
+  AdminProfileChange
+  AdminDelete
+
+  AdminBlogCreate
+  AdminBlogDelete
+
+  AdminStoreItemDelete
+  AdminStoreItemUpdate
+  AdminStoreItemAdd
+
+  ContactFormSubmit
+  ContributorFormSubmit
+}
+
+model Memo {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  pinned    Boolean  @default(false)
+
+  authorId String
+  author   Admins @relation("MemoSent", fields: [authorId], references: [id])
+
+  recipients Admins[] @relation("MemoReceived")
+  status   MemoStatus
+  readBy   Admins[] @relation("MemoReadBy")
+
+  @@index([createdAt])
+  @@index([authorId])
+}
+
+model Quiz {
+  id        String   @id @default(cuid())
+  slug String   @unique
+  title String
+  takers QuizTaker[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ImpactPattern {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  icon        String
+  color       String
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ImpactReport {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  link        String?
+  fileUrl     String?
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+
+model QuizTaker {
+  id        String   @id @default(cuid())
+  name String
+  email String @unique
+  quizId String
+  quiz Quiz @relation(fields: [quizId], references: [slug])
+  score   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([email, quizId])
+}
+
+
+enum MemoStatus {
+  RESOLVED
+  UNRESOLVED
+}
+
+
+model ContactForm {
+  id  Int  @id @default(autoincrement())
+  firstName String
+  lastName String
+  location String
+  email String
+  message String
+  addressed Boolean?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  reply String?
+  addressedBy String?
+  addressedAt DateTime?
+  readBy   Admins[]  @relation("ContactFormRead")
+
+}
+
+model Contribution {
+  id  Int  @id @default(autoincrement())
+  name String
+  email String
+  phoneNumber String
+  content String
+  links Json
+  status ContributionStatus @default(UnderReview)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  replied Boolean? @default(false)
+  repliedAt DateTime?
+  repliedBy String?
+}
+
+
+enum ContributionStatus{
+  Adopted
+  Revised
+  UnderReview
+  Declined
+}
+
+enum StoreCategory {
+  All
+  ForParents
+  ForEducators
+  Courses
+  Coaching
+  Downloads
+  Guides
+  Free
+  PhysicalProducts
+  AffirmationCards
+}
+
+enum ParentNeed {
+  Bullying
+  SEND
+  EHCP
+  SCHOOL_ISSUES
+  parenting
+}
+
+model BlogNextStep {
+  id Int @id @default(autoincrement())
+  blogs Blog[] @relation("BlogNextStep")
+  title String
+  link String
+  desc String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
